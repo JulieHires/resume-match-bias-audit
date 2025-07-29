@@ -12,7 +12,7 @@ import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import Papa from "papaparse"
 import jsPDF from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 import { DocumentationModal } from "@/components/documentation-modal"
 
 const chartConfig = {
@@ -180,8 +180,8 @@ export default function ResumeBiasChecker() {
           group.matchScore >= groupedData[0]?.matchScore * 0.8 ? "Pass" : "Fail",
         ])
 
-        // Add table
-        ;(doc as any).autoTable({
+        // Add table using autoTable
+        autoTable(doc, {
           head: [["Demographic Group", "Count", "Avg Score", "80% Rule"]],
           body: tableData,
           startY: yPosition,
@@ -290,7 +290,8 @@ export default function ResumeBiasChecker() {
             resume.raceConfidence ? `${Math.round(resume.raceConfidence * 100)}%` : "N/A",
             resume.matchScore.toFixed(1),
           ])
-        ;(doc as any).autoTable({
+
+        autoTable(doc, {
           head: [["Name", "Gender", "G.Conf", "Race", "R.Conf", "Score"]],
           body: resumeTableData,
           startY: yPosition,
@@ -302,7 +303,7 @@ export default function ResumeBiasChecker() {
       }
 
       // Footer
-      const totalPages = doc.internal.pages.length - 1
+      const totalPages = doc.getNumberOfPages()
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i)
         doc.setFontSize(8)
@@ -320,7 +321,7 @@ export default function ResumeBiasChecker() {
       doc.save(fileName)
     } catch (error) {
       console.error("Error generating PDF:", error)
-      alert("Error generating report. Please try again.")
+      alert(`Error generating report: ${error.message}. Please try again.`)
     } finally {
       setIsDownloading(false)
     }
