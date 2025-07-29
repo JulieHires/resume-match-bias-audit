@@ -831,87 +831,6 @@ export default function ResumeBiasChecker() {
     }
   }
 
-  const testInferenceFunctions = () => {
-    console.log("=== TESTING AI INFERENCE FUNCTIONS ===")
-
-    // Test cases for gender inference from names
-    const nameTestCases = [
-      { name: "John Smith", expectedGender: "Male" },
-      { name: "Mary Johnson", expectedGender: "Female" },
-      { name: "Alex Taylor", expectedGender: "Unknown" },
-      { name: "", expectedGender: "Unknown" },
-      { name: null, expectedGender: "Unknown" },
-      { name: "J", expectedGender: "Unknown" },
-      { name: "John Michael Smith Jr.", expectedGender: "Male" },
-      { name: "María García", expectedGender: "Female" },
-    ]
-
-    console.log("--- Testing Gender Inference from Names ---")
-    nameTestCases.forEach((testCase) => {
-      try {
-        const result = inferGenderFromName(testCase.name)
-        const passed = result.gender === testCase.expectedGender
-        console.log(
-          `${passed ? "✅" : "❌"} Name: "${testCase.name}" -> ${result.gender} (confidence: ${result.confidence})`,
-        )
-        if (!passed) {
-          console.warn(`Expected: ${testCase.expectedGender}, Got: ${result.gender}`)
-        }
-      } catch (error) {
-        console.error(`❌ Error testing name "${testCase.name}":`, error)
-      }
-    })
-
-    // Test cases for gender inference from text
-    const textTestCases = [
-      { text: "Led multiple teams and achieved outstanding results", expectedPattern: "Male-leaning" },
-      { text: "Collaborated with stakeholders and supported team initiatives", expectedPattern: "Female-leaning" },
-      { text: "Worked on various projects", expectedPattern: "Neutral" },
-      { text: "", expectedPattern: "Unknown" },
-      { text: "Hi", expectedPattern: "Unknown" },
-    ]
-
-    console.log("--- Testing Gender Inference from Text ---")
-    textTestCases.forEach((testCase) => {
-      try {
-        const result = inferGenderFromText(testCase.text)
-        console.log(
-          `Text: "${testCase.text.substring(0, 30)}..." -> ${result.gender} (confidence: ${result.confidence})`,
-        )
-      } catch (error) {
-        console.error(`❌ Error testing text:`, error)
-      }
-    })
-
-    // Test cases for race inference
-    const raceTestCases = [
-      { name: "Juan Garcia", expectedRace: "Hispanic" },
-      { name: "Keisha Washington", expectedRace: "Black" },
-      { name: "Li Chen", expectedRace: "Asian" },
-      { name: "John Smith", expectedRace: "White" },
-      { name: "", expectedRace: "Unknown" },
-      { name: "X", expectedRace: "Unknown" },
-    ]
-
-    console.log("--- Testing Race Inference from Names ---")
-    raceTestCases.forEach((testCase) => {
-      try {
-        const result = inferRaceFromName(testCase.name)
-        const passed = result.race === testCase.expectedRace
-        console.log(
-          `${passed ? "✅" : "❌"} Name: "${testCase.name}" -> ${result.race} (confidence: ${result.confidence})`,
-        )
-        if (!passed) {
-          console.warn(`Expected: ${testCase.expectedRace}, Got: ${result.race}`)
-        }
-      } catch (error) {
-        console.error(`❌ Error testing race for "${testCase.name}":`, error)
-      }
-    })
-
-    console.log("=== INFERENCE TESTING COMPLETE ===")
-  }
-
   const processResumes = async (resumes: ResumeData[]) => {
     setCurrentScreen("processing")
     const processedResumes: ResumeData[] = []
@@ -1427,18 +1346,10 @@ export default function ResumeBiasChecker() {
             </Card>
           )}
 
-          <div className="text-center mb-6 space-y-2">
+          <div className="text-center mb-6">
             <Button variant="outline" onClick={() => setShowDocumentation(true)} className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Help & Documentation
-            </Button>
-            <Button
-              variant="outline"
-              onClick={testInferenceFunctions}
-              className="flex items-center gap-2 ml-2 bg-transparent"
-            >
-              <Brain className="h-4 w-4" />
-              Test AI Functions
             </Button>
           </div>
 
