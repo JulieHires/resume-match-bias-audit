@@ -11,8 +11,6 @@ import { Progress } from "@/components/ui/progress"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import Papa from "papaparse"
-import jsPDF from "jspdf"
-import "jspdf-autotable"
 import { DocumentationModal } from "@/components/documentation-modal"
 
 const chartConfig = {
@@ -78,6 +76,10 @@ export default function ResumeBiasChecker() {
     setIsDownloading(true)
 
     try {
+      // Dynamic import to avoid SSR issues
+      const jsPDF = (await import("jspdf")).default
+      const autoTable = (await import("jspdf-autotable")).default
+
       const doc = new jsPDF()
       const pageWidth = doc.internal.pageSize.width
       const pageHeight = doc.internal.pageSize.height
@@ -181,7 +183,7 @@ export default function ResumeBiasChecker() {
         ])
 
         // Add table
-        ;(doc as any).autoTable({
+        autoTable(doc, {
           head: [["Demographic Group", "Count", "Avg Score", "80% Rule"]],
           body: tableData,
           startY: yPosition,
@@ -290,7 +292,8 @@ export default function ResumeBiasChecker() {
             resume.raceConfidence ? `${Math.round(resume.raceConfidence * 100)}%` : "N/A",
             resume.matchScore.toFixed(1),
           ])
-        ;(doc as any).autoTable({
+
+        autoTable(doc, {
           head: [["Name", "Gender", "G.Conf", "Race", "R.Conf", "Score"]],
           body: resumeTableData,
           startY: yPosition,
@@ -302,7 +305,7 @@ export default function ResumeBiasChecker() {
       }
 
       // Footer
-      const totalPages = doc.internal.pages.length - 1
+      const totalPages = doc.getNumberOfPages()
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i)
         doc.setFontSize(8)
@@ -318,9 +321,11 @@ export default function ResumeBiasChecker() {
       // Save the PDF
       const fileName = `Resume_Bias_Report_${new Date().toISOString().split("T")[0]}.pdf`
       doc.save(fileName)
+
+      console.log("PDF generated successfully")
     } catch (error) {
       console.error("Error generating PDF:", error)
-      alert("Error generating report. Please try again.")
+      alert(`Error generating report: ${error.message}. Please try again.`)
     } finally {
       setIsDownloading(false)
     }
@@ -328,181 +333,187 @@ export default function ResumeBiasChecker() {
 
   // Gender inference from names using a simple heuristic approach
   const inferGenderFromName = (name: string): { gender: string; confidence: number } => {
-    const firstName = name.split(" ")[0].toLowerCase()
+    try {
+      // Input validation
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        console.warn("Invalid name input for gender inference:", name)
+        return { gender: "Unknown", confidence: 0.0 }
+      }
 
-    // Common male names (simplified dataset)
-    const maleNames = [
-      "john",
-      "michael",
-      "david",
-      "james",
-      "robert",
-      "william",
-      "richard",
-      "charles",
-      "joseph",
-      "thomas",
-      "christopher",
-      "daniel",
-      "paul",
-      "mark",
-      "donald",
-      "steven",
-      "kenneth",
-      "andrew",
-      "joshua",
-      "kevin",
-      "brian",
-      "george",
-      "edward",
-      "ronald",
-      "timothy",
-      "jason",
-      "jeffrey",
-      "ryan",
-      "jacob",
-      "gary",
-      "nicholas",
-      "eric",
-      "jonathan",
-      "stephen",
-      "larry",
-      "justin",
-      "scott",
-      "brandon",
-      "benjamin",
-      "samuel",
-      "gregory",
-      "alexander",
-      "patrick",
-      "frank",
-      "raymond",
-      "jack",
-      "dennis",
-      "jerry",
-      "tyler",
-      "aaron",
-      "jose",
-      "henry",
-      "adam",
-      "douglas",
-      "nathan",
-      "peter",
-      "zachary",
-      "kyle",
-      "noah",
-      "alan",
-      "ethan",
-      "jeremy",
-      "lionel",
-      "mike",
-      "carl",
-      "wayne",
-      "ralph",
-      "roy",
-      "eugene",
-      "louis",
-      "philip",
-      "bobby",
-    ]
+      const cleanName = name.trim()
+      const nameParts = cleanName.split(/\s+/)
 
-    // Common female names (simplified dataset)
-    const femaleNames = [
-      "mary",
-      "patricia",
-      "jennifer",
-      "linda",
-      "elizabeth",
-      "barbara",
-      "susan",
-      "jessica",
-      "sarah",
-      "karen",
-      "nancy",
-      "lisa",
-      "betty",
-      "helen",
-      "sandra",
-      "donna",
-      "carol",
-      "ruth",
-      "sharon",
-      "michelle",
-      "laura",
-      "sarah",
-      "kimberly",
-      "deborah",
-      "dorothy",
-      "lisa",
-      "nancy",
-      "karen",
-      "betty",
-      "helen",
-      "sandra",
-      "donna",
-      "carol",
-      "ruth",
-      "sharon",
-      "michelle",
-      "laura",
-      "sarah",
-      "kimberly",
-      "deborah",
-      "dorothy",
-      "amy",
-      "angela",
-      "ashley",
-      "brenda",
-      "emma",
-      "olivia",
-      "cynthia",
-      "marie",
-      "janet",
-      "catherine",
-      "frances",
-      "christine",
-      "samantha",
-      "debra",
-      "rachel",
-      "carolyn",
-      "janet",
-      "virginia",
-      "maria",
-      "heather",
-      "diane",
-      "julie",
-      "joyce",
-      "victoria",
-      "kelly",
-      "christina",
-      "joan",
-      "evelyn",
-      "lauren",
-      "judith",
-      "megan",
-      "cheryl",
-      "andrea",
-      "hannah",
-      "jacqueline",
-      "martha",
-      "gloria",
-      "teresa",
-      "sara",
-      "janice",
-      "marie",
-      "julia",
-      "heather",
-      "diane",
-    ]
+      if (nameParts.length === 0) {
+        console.warn("No name parts found after splitting:", cleanName)
+        return { gender: "Unknown", confidence: 0.0 }
+      }
 
-    if (maleNames.includes(firstName)) {
-      return { gender: "Male", confidence: 0.85 }
-    } else if (femaleNames.includes(firstName)) {
-      return { gender: "Female", confidence: 0.85 }
+      const firstName = nameParts[0].toLowerCase()
+
+      // Validate firstName
+      if (!firstName || firstName.length < 2) {
+        console.warn("First name too short or invalid:", firstName)
+        return { gender: "Unknown", confidence: 0.0 }
+      }
+
+      // Common male names (simplified dataset)
+      const maleNames = [
+        "john",
+        "michael",
+        "david",
+        "james",
+        "robert",
+        "william",
+        "richard",
+        "charles",
+        "joseph",
+        "thomas",
+        "christopher",
+        "daniel",
+        "paul",
+        "mark",
+        "donald",
+        "steven",
+        "kenneth",
+        "andrew",
+        "joshua",
+        "kevin",
+        "brian",
+        "george",
+        "edward",
+        "ronald",
+        "timothy",
+        "jason",
+        "jeffrey",
+        "ryan",
+        "jacob",
+        "gary",
+        "nicholas",
+        "eric",
+        "jonathan",
+        "stephen",
+        "larry",
+        "justin",
+        "scott",
+        "brandon",
+        "benjamin",
+        "samuel",
+        "gregory",
+        "alexander",
+        "patrick",
+        "frank",
+        "raymond",
+        "jack",
+        "dennis",
+        "jerry",
+        "tyler",
+        "aaron",
+        "jose",
+        "henry",
+        "adam",
+        "douglas",
+        "nathan",
+        "peter",
+        "zachary",
+        "kyle",
+        "noah",
+        "alan",
+        "ethan",
+        "jeremy",
+        "lionel",
+        "mike",
+        "carl",
+        "wayne",
+        "ralph",
+        "roy",
+        "eugene",
+        "louis",
+        "philip",
+        "bobby",
+      ]
+
+      // Common female names (simplified dataset)
+      const femaleNames = [
+        "mary",
+        "patricia",
+        "jennifer",
+        "linda",
+        "elizabeth",
+        "barbara",
+        "susan",
+        "jessica",
+        "sarah",
+        "karen",
+        "nancy",
+        "lisa",
+        "betty",
+        "helen",
+        "sandra",
+        "donna",
+        "carol",
+        "ruth",
+        "sharon",
+        "michelle",
+        "laura",
+        "kimberly",
+        "deborah",
+        "dorothy",
+        "amy",
+        "angela",
+        "ashley",
+        "brenda",
+        "emma",
+        "olivia",
+        "cynthia",
+        "marie",
+        "janet",
+        "catherine",
+        "frances",
+        "christine",
+        "samantha",
+        "debra",
+        "rachel",
+        "carolyn",
+        "virginia",
+        "maria",
+        "heather",
+        "diane",
+        "julie",
+        "joyce",
+        "victoria",
+        "kelly",
+        "christina",
+        "joan",
+        "evelyn",
+        "lauren",
+        "judith",
+        "megan",
+        "cheryl",
+        "andrea",
+        "hannah",
+        "jacqueline",
+        "martha",
+        "gloria",
+        "teresa",
+        "sara",
+        "janice",
+        "julia",
+      ]
+
+      if (maleNames.includes(firstName)) {
+        console.log(`Gender inference: ${firstName} -> Male (confidence: 0.85)`)
+        return { gender: "Male", confidence: 0.85 }
+      } else if (femaleNames.includes(firstName)) {
+        console.log(`Gender inference: ${firstName} -> Female (confidence: 0.85)`)
+        return { gender: "Female", confidence: 0.85 }
+      }
+
+      console.log(`Gender inference: ${firstName} -> Unknown (not in dataset)`)
+      return { gender: "Unknown", confidence: 0.0 }
+    } catch (error) {
+      console.error("Error in inferGenderFromName:", error, "Input:", name)
+      return { gender: "Unknown", confidence: 0.0 }
     }
-
-    // Fallback to text-based patterns
-    return { gender: "Unknown", confidence: 0.0 }
   }
 
   // Gender inference from resume text using linguistic patterns
@@ -596,7 +607,6 @@ export default function ResumeBiasChecker() {
   const inferRaceFromName = (name: string): { race: string; confidence: number } => {
     const nameParts = name.split(" ")
     const lastName = nameParts[nameParts.length - 1].toLowerCase()
-    const firstName = nameParts[0].toLowerCase()
 
     // Hispanic surnames (simplified dataset)
     const hispanicSurnames = [
@@ -606,7 +616,6 @@ export default function ResumeBiasChecker() {
       "hernandez",
       "lopez",
       "gonzalez",
-      "wilson",
       "perez",
       "sanchez",
       "ramirez",
@@ -667,65 +676,6 @@ export default function ResumeBiasChecker() {
       "adams",
       "nelson",
       "hill",
-      "ramirez",
-      "campbell",
-      "mitchell",
-      "roberts",
-      "carter",
-      "phillips",
-      "evans",
-      "turner",
-      "torres",
-      "parker",
-      "collins",
-      "edwards",
-      "stewart",
-      "flores",
-      "morris",
-      "nguyen",
-      "murphy",
-      "rivera",
-      "cook",
-      "rogers",
-      "morgan",
-      "peterson",
-      "cooper",
-      "reed",
-      "bailey",
-      "bell",
-      "gomez",
-      "kelly",
-      "howard",
-      "ward",
-      "cox",
-      "diaz",
-      "richardson",
-      "wood",
-      "watson",
-      "brooks",
-      "bennett",
-      "gray",
-      "james",
-      "reyes",
-      "cruz",
-      "hughes",
-      "price",
-      "myers",
-      "long",
-      "foster",
-      "sanders",
-      "ross",
-      "morales",
-      "powell",
-      "sullivan",
-      "russell",
-      "ortiz",
-      "jenkins",
-      "gutierrez",
-      "perry",
-      "butler",
-      "barnes",
-      "fisher",
     ]
 
     // Asian surnames (simplified dataset)
@@ -755,7 +705,6 @@ export default function ResumeBiasChecker() {
       "xie",
       "song",
       "tang",
-      "xu",
       "deng",
       "feng",
       "yu",
@@ -795,15 +744,12 @@ export default function ResumeBiasChecker() {
       "yoon",
       "jang",
       "lim",
-      "han",
       "oh",
       "seo",
       "shin",
       "kwon",
       "hwang",
       "ahn",
-      "kim",
-      "park",
       "nakamura",
       "tanaka",
       "suzuki",
