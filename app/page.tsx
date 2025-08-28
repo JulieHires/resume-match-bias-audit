@@ -11,8 +11,6 @@ import { Progress } from "@/components/ui/progress"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import Papa from "papaparse"
-import jsPDF from "jspdf"
-import "jspdf-autotable"
 import { DocumentationModal } from "@/components/documentation-modal"
 
 const chartConfig = {
@@ -78,6 +76,10 @@ export default function ResumeBiasChecker() {
     setIsDownloading(true)
 
     try {
+      // Dynamic import to avoid SSR issues
+      const jsPDF = (await import("jspdf")).default
+      const autoTable = (await import("jspdf-autotable")).default
+
       const doc = new jsPDF()
       const pageWidth = doc.internal.pageSize.width
       const pageHeight = doc.internal.pageSize.height
@@ -181,7 +183,7 @@ export default function ResumeBiasChecker() {
         ])
 
         // Add table
-        ;(doc as any).autoTable({
+        autoTable(doc, {
           head: [["Demographic Group", "Count", "Avg Score", "80% Rule"]],
           body: tableData,
           startY: yPosition,
@@ -290,7 +292,8 @@ export default function ResumeBiasChecker() {
             resume.raceConfidence ? `${Math.round(resume.raceConfidence * 100)}%` : "N/A",
             resume.matchScore.toFixed(1),
           ])
-        ;(doc as any).autoTable({
+
+        autoTable(doc, {
           head: [["Name", "Gender", "G.Conf", "Race", "R.Conf", "Score"]],
           body: resumeTableData,
           startY: yPosition,
@@ -302,7 +305,7 @@ export default function ResumeBiasChecker() {
       }
 
       // Footer
-      const totalPages = doc.internal.pages.length - 1
+      const totalPages = doc.getNumberOfPages()
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i)
         doc.setFontSize(8)
@@ -318,9 +321,11 @@ export default function ResumeBiasChecker() {
       // Save the PDF
       const fileName = `Resume_Bias_Report_${new Date().toISOString().split("T")[0]}.pdf`
       doc.save(fileName)
+
+      console.log("PDF generated successfully")
     } catch (error) {
       console.error("Error generating PDF:", error)
-      alert("Error generating report. Please try again.")
+      alert(`Error generating report: ${error.message}. Please try again.`)
     } finally {
       setIsDownloading(false)
     }
