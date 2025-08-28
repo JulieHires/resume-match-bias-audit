@@ -1,30 +1,31 @@
-# 2-screen web app layout
+### Hi, I'm Julie!
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+I'm a startup recruiter with a technical background—I started my career as a network engineer and now help early-stage teams hire better (especially for technical roles).
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/julie-reeds-projects/v0-resume-match-bias-detection-tool)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/XsnPATBoBtb)
+I'm here to stay close to the tools and projects engineers actually care about.
 
-## Overview
+Right now, I’m learning:
+- How developers *really* work (beyond resumes)
+- VibeCode (yes, I’m exploring the dev side!)
+- How generative AI is changing workflows and tools
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+If you’re building in that space—or just sharing something cool—I’d love to see it.
 
-## Deployment
+Let’s connect:
+- [X (formerly Twitter)](https://x.com/Julie_Hires)
+- [LinkedIn](https://linkedin.com/in/reedjulie)
 
-Your project is live at:
+<!--
+**JulieHires/JulieHires** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
-**[https://vercel.com/julie-reeds-projects/v0-resume-match-bias-detection-tool](https://vercel.com/julie-reeds-projects/v0-resume-match-bias-detection-tool)**
+Here are some ideas to get you started:
 
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/XsnPATBoBtb](https://v0.dev/chat/projects/XsnPATBoBtb)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+- 🔭 I’m currently working on ...
+- 🌱 I’m currently learning ...
+- 👯 I’m looking to collaborate on ...
+- 🤔 I’m looking for help with ...
+- 💬 Ask me about ...
+- 📫 How to reach me: ...
+- 😄 Pronouns: ...
+- ⚡ Fun fact: ...
+-->
