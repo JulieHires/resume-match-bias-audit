@@ -11,8 +11,6 @@ import { Progress } from "@/components/ui/progress"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import Papa from "papaparse"
-import jsPDF from "jspdf"
-import autoTable from "jspdf-autotable"
 import { DocumentationModal } from "@/components/documentation-modal"
 
 const chartConfig = {
@@ -78,6 +76,10 @@ export default function ResumeBiasChecker() {
     setIsDownloading(true)
 
     try {
+      // Dynamic import to avoid SSR issues
+      const jsPDF = (await import("jspdf")).default
+      const autoTable = (await import("jspdf-autotable")).default
+
       const doc = new jsPDF()
       const pageWidth = doc.internal.pageSize.width
       const pageHeight = doc.internal.pageSize.height
@@ -180,7 +182,7 @@ export default function ResumeBiasChecker() {
           group.matchScore >= groupedData[0]?.matchScore * 0.8 ? "Pass" : "Fail",
         ])
 
-        // Add table using autoTable
+        // Add table
         autoTable(doc, {
           head: [["Demographic Group", "Count", "Avg Score", "80% Rule"]],
           body: tableData,
@@ -319,9 +321,11 @@ export default function ResumeBiasChecker() {
       // Save the PDF
       const fileName = `Resume_Bias_Report_${new Date().toISOString().split("T")[0]}.pdf`
       doc.save(fileName)
+
+      console.log("PDF generated successfully")
     } catch (error) {
       console.error("Error generating PDF:", error)
-      alert(`Error generating report: ${error.message}. Please try again.`)
+      alert("Error generating report. Please try again.")
     } finally {
       setIsDownloading(false)
     }
@@ -514,321 +518,352 @@ export default function ResumeBiasChecker() {
 
   // Gender inference from resume text using linguistic patterns
   const inferGenderFromText = (text: string): { gender: string; confidence: number } => {
-    try {
-      // Input validation
-      if (!text || typeof text !== "string" || text.trim().length === 0) {
-        console.warn("Invalid text input for gender inference:", text?.substring(0, 50))
-        return { gender: "Unknown", confidence: 0.0 }
-      }
+    const lowerText = text.toLowerCase()
 
-      const lowerText = text.toLowerCase()
+    // Agentic words (more common in male resumes)
+    const agenticWords = [
+      "achieved",
+      "accomplished",
+      "delivered",
+      "executed",
+      "led",
+      "managed",
+      "directed",
+      "drove",
+      "spearheaded",
+      "pioneered",
+      "dominated",
+      "conquered",
+      "won",
+      "beat",
+      "outperformed",
+      "exceeded",
+      "surpassed",
+      "competitive",
+      "aggressive",
+      "assertive",
+      "confident",
+      "independent",
+      "ambitious",
+      "decisive",
+    ]
 
-      if (lowerText.length < 10) {
-        console.warn("Text too short for reliable gender inference:", lowerText.length, "characters")
-        return { gender: "Unknown", confidence: 0.0 }
-      }
+    // Communal words (more common in female resumes)
+    const communalWords = [
+      "collaborated",
+      "supported",
+      "helped",
+      "assisted",
+      "coordinated",
+      "facilitated",
+      "contributed",
+      "participated",
+      "cooperated",
+      "mentored",
+      "guided",
+      "nurtured",
+      "caring",
+      "empathetic",
+      "understanding",
+      "patient",
+      "thoughtful",
+      "considerate",
+      "helpful",
+      "supportive",
+      "collaborative",
+      "team-oriented",
+      "inclusive",
+    ]
 
-      // Agentic words (more common in male resumes)
-      const agenticWords = [
-        "achieved",
-        "accomplished",
-        "delivered",
-        "executed",
-        "led",
-        "managed",
-        "directed",
-        "drove",
-        "spearheaded",
-        "pioneered",
-        "dominated",
-        "conquered",
-        "won",
-        "beat",
-        "outperformed",
-        "exceeded",
-        "surpassed",
-        "competitive",
-        "aggressive",
-        "assertive",
-        "confident",
-        "independent",
-        "ambitious",
-        "decisive",
-      ]
+    let agenticScore = 0
+    let communalScore = 0
 
-      // Communal words (more common in female resumes)
-      const communalWords = [
-        "collaborated",
-        "supported",
-        "helped",
-        "assisted",
-        "coordinated",
-        "facilitated",
-        "contributed",
-        "participated",
-        "cooperated",
-        "mentored",
-        "guided",
-        "nurtured",
-        "caring",
-        "empathetic",
-        "understanding",
-        "patient",
-        "thoughtful",
-        "considerate",
-        "helpful",
-        "supportive",
-        "collaborative",
-        "team-oriented",
-        "inclusive",
-      ]
+    agenticWords.forEach((word) => {
+      const matches = (lowerText.match(new RegExp(word, "g")) || []).length
+      agenticScore += matches
+    })
 
-      let agenticScore = 0
-      let communalScore = 0
+    communalWords.forEach((word) => {
+      const matches = (lowerText.match(new RegExp(word, "g")) || []).length
+      communalScore += matches
+    })
 
-      // Count agentic words
-      agenticWords.forEach((word) => {
-        try {
-          const matches = (lowerText.match(new RegExp(`\\b${word}\\b`, "g")) || []).length
-          agenticScore += matches
-        } catch (regexError) {
-          console.warn(`Regex error for agentic word "${word}":`, regexError)
-        }
-      })
-
-      // Count communal words
-      communalWords.forEach((word) => {
-        try {
-          const matches = (lowerText.match(new RegExp(`\\b${word}\\b`, "g")) || []).length
-          communalScore += matches
-        } catch (regexError) {
-          console.warn(`Regex error for communal word "${word}":`, regexError)
-        }
-      })
-
-      const totalWords = agenticScore + communalScore
-
-      console.log(`Text analysis: Agentic=${agenticScore}, Communal=${communalScore}, Total=${totalWords}`)
-
-      if (totalWords === 0) {
-        console.log("No gendered language patterns found in text")
-        return { gender: "Unknown", confidence: 0.0 }
-      }
-
-      const agenticRatio = agenticScore / totalWords
-
-      if (agenticRatio > 0.6) {
-        const confidence = Math.min(0.75, agenticRatio)
-        console.log(
-          `Text gender inference: Male (agentic ratio: ${agenticRatio.toFixed(2)}, confidence: ${confidence.toFixed(2)})`,
-        )
-        return { gender: "Male", confidence }
-      } else if (agenticRatio < 0.4) {
-        const confidence = Math.min(0.75, 1 - agenticRatio)
-        console.log(
-          `Text gender inference: Female (agentic ratio: ${agenticRatio.toFixed(2)}, confidence: ${confidence.toFixed(2)})`,
-        )
-        return { gender: "Female", confidence }
-      }
-
-      console.log(`Text gender inference: Unknown (agentic ratio: ${agenticRatio.toFixed(2)} - too ambiguous)`)
-      return { gender: "Unknown", confidence: 0.0 }
-    } catch (error) {
-      console.error("Error in inferGenderFromText:", error, "Text length:", text?.length)
+    const totalWords = agenticScore + communalScore
+    if (totalWords === 0) {
       return { gender: "Unknown", confidence: 0.0 }
     }
+
+    const agenticRatio = agenticScore / totalWords
+    if (agenticRatio > 0.6) {
+      return { gender: "Male", confidence: Math.min(0.75, agenticRatio) }
+    } else if (agenticRatio < 0.4) {
+      return { gender: "Female", confidence: Math.min(0.75, 1 - agenticRatio) }
+    }
+
+    return { gender: "Unknown", confidence: 0.0 }
   }
 
   // Race inference from names using surname patterns
   const inferRaceFromName = (name: string): { race: string; confidence: number } => {
-    try {
-      // Input validation
-      if (!name || typeof name !== "string" || name.trim().length === 0) {
-        console.warn("Invalid name input for race inference:", name)
-        return { race: "Unknown", confidence: 0.0 }
-      }
+    const nameParts = name.split(" ")
+    const lastName = nameParts[nameParts.length - 1].toLowerCase()
+    const firstName = nameParts[0].toLowerCase()
 
-      const cleanName = name.trim()
-      const nameParts = cleanName.split(/\s+/)
+    // Hispanic surnames (simplified dataset)
+    const hispanicSurnames = [
+      "garcia",
+      "rodriguez",
+      "martinez",
+      "hernandez",
+      "lopez",
+      "gonzalez",
+      "wilson",
+      "perez",
+      "sanchez",
+      "ramirez",
+      "torres",
+      "flores",
+      "rivera",
+      "gomez",
+      "diaz",
+      "reyes",
+      "morales",
+      "ortiz",
+      "gutierrez",
+      "chavez",
+      "ramos",
+      "castillo",
+      "mendoza",
+      "vargas",
+      "alvarez",
+      "jimenez",
+      "romero",
+      "vasquez",
+      "herrera",
+      "medina",
+      "castro",
+      "ruiz",
+    ]
 
-      if (nameParts.length === 0) {
-        console.warn("No name parts found for race inference:", cleanName)
-        return { race: "Unknown", confidence: 0.0 }
-      }
+    // Common Black surnames (simplified dataset)
+    const blackSurnames = [
+      "washington",
+      "jefferson",
+      "jackson",
+      "johnson",
+      "williams",
+      "brown",
+      "jones",
+      "davis",
+      "miller",
+      "wilson",
+      "moore",
+      "taylor",
+      "anderson",
+      "thomas",
+      "harris",
+      "martin",
+      "thompson",
+      "white",
+      "lewis",
+      "walker",
+      "hall",
+      "allen",
+      "young",
+      "king",
+      "wright",
+      "scott",
+      "green",
+      "baker",
+      "adams",
+      "nelson",
+      "hill",
+      "ramirez",
+      "campbell",
+      "mitchell",
+      "roberts",
+      "carter",
+      "phillips",
+      "evans",
+      "turner",
+      "torres",
+      "parker",
+      "collins",
+      "edwards",
+      "stewart",
+      "flores",
+      "morris",
+      "nguyen",
+      "murphy",
+      "rivera",
+      "cook",
+      "rogers",
+      "morgan",
+      "peterson",
+      "cooper",
+      "reed",
+      "bailey",
+      "bell",
+      "gomez",
+      "kelly",
+      "howard",
+      "ward",
+      "cox",
+      "diaz",
+      "richardson",
+      "wood",
+      "watson",
+      "brooks",
+      "bennett",
+      "gray",
+      "james",
+      "reyes",
+      "cruz",
+      "hughes",
+      "price",
+      "myers",
+      "long",
+      "foster",
+      "sanders",
+      "ross",
+      "morales",
+      "powell",
+      "sullivan",
+      "russell",
+      "ortiz",
+      "jenkins",
+      "gutierrez",
+      "perry",
+      "butler",
+      "barnes",
+      "fisher",
+    ]
 
-      const lastName = nameParts[nameParts.length - 1].toLowerCase()
-      const firstName = nameParts[0].toLowerCase()
+    // Asian surnames (simplified dataset)
+    const asianSurnames = [
+      "li",
+      "wang",
+      "zhang",
+      "liu",
+      "chen",
+      "yang",
+      "huang",
+      "zhao",
+      "wu",
+      "zhou",
+      "xu",
+      "sun",
+      "ma",
+      "zhu",
+      "hu",
+      "guo",
+      "he",
+      "gao",
+      "lin",
+      "luo",
+      "zheng",
+      "liang",
+      "xie",
+      "song",
+      "tang",
+      "xu",
+      "deng",
+      "feng",
+      "yu",
+      "dong",
+      "xiao",
+      "cheng",
+      "han",
+      "zeng",
+      "peng",
+      "cao",
+      "dai",
+      "wei",
+      "xue",
+      "du",
+      "ren",
+      "shen",
+      "lv",
+      "jiang",
+      "lu",
+      "gu",
+      "meng",
+      "qin",
+      "shao",
+      "wan",
+      "hou",
+      "yin",
+      "qiu",
+      "jin",
+      "tan",
+      "kim",
+      "park",
+      "lee",
+      "choi",
+      "jung",
+      "kang",
+      "cho",
+      "yoon",
+      "jang",
+      "lim",
+      "han",
+      "oh",
+      "seo",
+      "shin",
+      "kwon",
+      "hwang",
+      "ahn",
+      "kim",
+      "park",
+      "nakamura",
+      "tanaka",
+      "suzuki",
+      "watanabe",
+      "ito",
+      "yamamoto",
+      "takahashi",
+      "kobayashi",
+      "sato",
+      "sasaki",
+      "yamada",
+      "yamazaki",
+      "mori",
+      "abe",
+      "ikeda",
+      "hashimoto",
+      "yamashita",
+      "ishikawa",
+      "nakajima",
+      "maeda",
+      "ogawa",
+      "takeuchi",
+      "nguyen",
+      "tran",
+      "le",
+      "pham",
+      "hoang",
+      "phan",
+      "vu",
+      "vo",
+      "dang",
+      "bui",
+      "do",
+      "ho",
+      "ngo",
+      "duong",
+      "ly",
+    ]
 
-      // Validate lastName
-      if (!lastName || lastName.length < 2) {
-        console.warn("Last name too short or invalid for race inference:", lastName)
-        return { race: "Unknown", confidence: 0.0 }
-      }
-
-      // Hispanic surnames (simplified dataset)
-      const hispanicSurnames = [
-        "garcia",
-        "rodriguez",
-        "martinez",
-        "hernandez",
-        "lopez",
-        "gonzalez",
-        "perez",
-        "sanchez",
-        "ramirez",
-        "torres",
-        "flores",
-        "rivera",
-        "gomez",
-        "diaz",
-        "reyes",
-        "morales",
-        "ortiz",
-        "gutierrez",
-        "chavez",
-        "ramos",
-        "castillo",
-        "mendoza",
-        "vargas",
-        "alvarez",
-        "jimenez",
-        "romero",
-        "vasquez",
-        "herrera",
-        "medina",
-        "castro",
-        "ruiz",
-      ]
-
-      // Common Black surnames (simplified dataset)
-      const blackSurnames = [
-        "washington",
-        "jefferson",
-        "jackson",
-        "johnson",
-        "williams",
-        "brown",
-        "jones",
-        "davis",
-        "miller",
-        "wilson",
-        "moore",
-        "taylor",
-        "anderson",
-        "thomas",
-        "harris",
-        "martin",
-        "thompson",
-        "white",
-        "lewis",
-        "walker",
-        "hall",
-        "allen",
-        "young",
-        "king",
-        "wright",
-        "scott",
-        "green",
-        "baker",
-        "adams",
-        "nelson",
-        "hill",
-      ]
-
-      // Asian surnames (simplified dataset)
-      const asianSurnames = [
-        "li",
-        "wang",
-        "zhang",
-        "liu",
-        "chen",
-        "yang",
-        "huang",
-        "zhao",
-        "wu",
-        "zhou",
-        "xu",
-        "sun",
-        "ma",
-        "zhu",
-        "hu",
-        "guo",
-        "he",
-        "gao",
-        "lin",
-        "luo",
-        "zheng",
-        "liang",
-        "xie",
-        "song",
-        "tang",
-        "deng",
-        "feng",
-        "yu",
-        "dong",
-        "xiao",
-        "cheng",
-        "han",
-        "zeng",
-        "peng",
-        "cao",
-        "dai",
-        "wei",
-        "xue",
-        "du",
-        "ren",
-        "shen",
-        "kim",
-        "park",
-        "lee",
-        "choi",
-        "jung",
-        "kang",
-        "cho",
-        "yoon",
-        "jang",
-        "lim",
-        "oh",
-        "seo",
-        "shin",
-        "kwon",
-        "hwang",
-        "ahn",
-        "nguyen",
-        "tran",
-        "le",
-        "pham",
-        "hoang",
-        "phan",
-        "vu",
-        "vo",
-        "dang",
-        "bui",
-        "do",
-        "ho",
-        "ngo",
-        "duong",
-        "ly",
-      ]
-
-      if (hispanicSurnames.includes(lastName)) {
-        console.log(`Race inference: ${lastName} -> Hispanic (confidence: 0.8)`)
-        return { race: "Hispanic", confidence: 0.8 }
-      } else if (blackSurnames.includes(lastName)) {
-        console.log(`Race inference: ${lastName} -> Black (confidence: 0.7)`)
-        return { race: "Black", confidence: 0.7 }
-      } else if (asianSurnames.includes(lastName)) {
-        console.log(`Race inference: ${lastName} -> Asian (confidence: 0.85)`)
-        return { race: "Asian", confidence: 0.85 }
-      }
-
-      // Default to White for common European surnames or unknown
-      console.log(`Race inference: ${lastName} -> White (default, confidence: 0.6)`)
-      return { race: "White", confidence: 0.6 }
-    } catch (error) {
-      console.error("Error in inferRaceFromName:", error, "Input:", name)
-      return { race: "Unknown", confidence: 0.0 }
+    if (hispanicSurnames.includes(lastName)) {
+      return { race: "Hispanic", confidence: 0.8 }
+    } else if (blackSurnames.includes(lastName)) {
+      return { race: "Black", confidence: 0.7 }
+    } else if (asianSurnames.includes(lastName)) {
+      return { race: "Asian", confidence: 0.85 }
     }
+
+    // Default to White for common European surnames or unknown
+    return { race: "White", confidence: 0.6 }
   }
 
   const processResumes = async (resumes: ResumeData[]) => {
