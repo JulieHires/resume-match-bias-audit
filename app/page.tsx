@@ -76,7 +76,7 @@ export default function ResumeBiasChecker() {
     setIsDownloading(true)
 
     try {
-      // Dynamic import to avoid SSR issues
+      // Dynamic import to avoid SSR issues - THIS IS THE KEY FIX
       const jsPDF = (await import("jspdf")).default
       const autoTable = (await import("jspdf-autotable")).default
 
@@ -182,7 +182,7 @@ export default function ResumeBiasChecker() {
           group.matchScore >= groupedData[0]?.matchScore * 0.8 ? "Pass" : "Fail",
         ])
 
-        // Add table
+        // Add table using correct autoTable syntax
         autoTable(doc, {
           head: [["Demographic Group", "Count", "Avg Score", "80% Rule"]],
           body: tableData,
